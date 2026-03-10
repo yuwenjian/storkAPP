@@ -3,6 +3,9 @@ import type { DailyReport, PortfolioStock, PortfolioFund } from "@/lib/supabase"
 import DashboardClient from "@/components/DashboardClient";
 
 async function getDashboardData() {
+  if (!supabase) {
+    return { latestReport: null, stocks: [], funds: [] };
+  }
   const [reportRes, stocksRes, fundsRes] = await Promise.all([
     supabase
       .from("daily_reports")

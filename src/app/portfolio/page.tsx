@@ -258,6 +258,7 @@ export default function PortfolioPage() {
   const [editItem, setEditItem] = useState<PortfolioStock | PortfolioFund | null>(null);
 
   const loadData = useCallback(async () => {
+    if (!supabase) return;
     const [sr, fr] = await Promise.all([
       supabase.from("portfolio_stocks").select("*").order("stock_code"),
       supabase.from("portfolio_funds").select("*").order("fund_code"),
@@ -269,6 +270,7 @@ export default function PortfolioPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   async function saveStock(data: Partial<PortfolioStock>) {
+    if (!supabase) { toast.error("未配置 Supabase"); return; }
     const t = toast.loading("保存中...");
     if (editItem?.id) {
       const { error } = await supabase.from("portfolio_stocks").update(data).eq("id", editItem.id);
@@ -283,6 +285,7 @@ export default function PortfolioPage() {
   }
 
   async function saveFund(data: Partial<PortfolioFund>) {
+    if (!supabase) { toast.error("未配置 Supabase"); return; }
     const t = toast.loading("保存中...");
     if (editItem?.id) {
       const { error } = await supabase.from("portfolio_funds").update(data).eq("id", editItem.id);
@@ -297,12 +300,14 @@ export default function PortfolioPage() {
   }
 
   async function toggleActive(table: string, id: number, current: boolean) {
+    if (!supabase) return;
     await supabase.from(table).update({ is_active: !current }).eq("id", id);
     toast.success(!current ? "已启用" : "已暂停分析");
     loadData();
   }
 
   async function deleteItem(table: string, id: number) {
+    if (!supabase) return;
     if (!confirm("确认删除？")) return;
     await supabase.from(table).delete().eq("id", id);
     toast.success("已删除");

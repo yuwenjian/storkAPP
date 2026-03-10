@@ -4,6 +4,7 @@ import ReportsClient from "@/components/ReportsClient";
 export const revalidate = 0;
 
 async function getReports(): Promise<DailyReport[]> {
+  if (!supabase) return [];
   const { data } = await supabase
     .from("daily_reports")
     .select("*")

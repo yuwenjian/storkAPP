@@ -67,6 +67,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
 
   const loadConfig = useCallback(async () => {
+    if (!supabase) return;
     const { data } = await supabase.from("app_config").select("key, value");
     if (data) {
       const map: Record<string, string> = {};
@@ -81,6 +82,7 @@ export default function SettingsPage() {
     setConfig((prev) => ({ ...prev, [key]: value }));
 
   async function save() {
+    if (!supabase) { toast.error("未配置 Supabase"); return; }
     setSaving(true);
     const t = toast.loading("保存配置...");
     const updates = Object.entries(config).map(([key, value]) =>
