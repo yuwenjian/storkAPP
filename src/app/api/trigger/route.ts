@@ -1,27 +1,45 @@
 import { NextResponse } from "next/server";
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+
 export async function POST() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    return NextResponse.json(
+      { status: "error", message: "服务端未配置 Supabase 环境变量" },
+      { status: 500 }
+    );
+  }
 
   try {
     const res = await fetch(
-      `${supabaseUrl}/functions/v1/stock-daily-analysis`,
+      `${SUPABASE_URL}/functions/v1/stock-daily-analysis`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${serviceRoleKey}`,
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
         },
-        body: JSON.stringify({ triggered_by: "web_dashboard" }),
+        body: JSON.stringify({ triggered_by: "frontend_manual", force: true }),
       }
     );
 
-    const data = await res.json();
-    return NextResponse.json(data);
+    const text = await res.text();
+    let json: Record<string, unknown>;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return NextResponse.json(
+        { status: "error", message: `Edge Function 响应异常: ${text.slice(0, 200)}` },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json(json, { status: res.ok ? 200 : 502 });
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
-      { status: "error", message: String(e) },
+      { status: "error", message: `调用失败: ${msg}` },
       { status: 500 }
     );
   }

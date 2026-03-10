@@ -73,16 +73,28 @@ body {
   border: 1px solid var(--border);
 }
 
-/* 动画延迟 */
-.delay-100 { animation-delay: 100ms; }
-.delay-200 { animation-delay: 200ms; }
-.delay-300 { animation-delay: 300ms; }
-.delay-400 { animation-delay: 400ms; }
-.delay-500 { animation-delay: 500ms; }
+/* 动画延迟（配合 animate-fade-in / animate-slide-up 使用） */
+.delay-100 { animation-delay: 100ms; animation-fill-mode: both; }
+.delay-150 { animation-delay: 150ms; animation-fill-mode: both; }
+.delay-200 { animation-delay: 200ms; animation-fill-mode: both; }
+.delay-250 { animation-delay: 250ms; animation-fill-mode: both; }
+.delay-300 { animation-delay: 300ms; animation-fill-mode: both; }
+.delay-400 { animation-delay: 400ms; animation-fill-mode: both; }
+.delay-500 { animation-delay: 500ms; animation-fill-mode: both; }
 
-/* 渐显（默认隐藏，动画后显示）*/
-.animate-fade-in,
+/* 动画：基础入场效果 */
+.animate-fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
 .animate-slide-up {
-  opacity: 0;
-  animation-fill-mode: forwards;
+  animation: slideUp 0.4s ease forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }

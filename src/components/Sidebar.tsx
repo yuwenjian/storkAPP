@@ -87,7 +87,7 @@ export default function Sidebar() {
             style={{ background: "var(--up)" }}
           />
           <span className="text-xs" style={{ color: "var(--muted)" }}>
-            每日 15:35 自动推送
+            每日 16:15 自动推送
           </span>
         </div>
         <div

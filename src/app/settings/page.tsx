@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase, type AppConfig } from "@/lib/supabase";
-import { Save, Database, Cpu, Bell, RefreshCw } from "lucide-react";
+import { Save, Database, Cpu, Bell, RefreshCw, Clock, FileText } from "lucide-react";
 import toast from "react-hot-toast";
 import { clsx } from "clsx";
 
 const DATA_SOURCES = [
-  { value: "tushare", label: "Tushare Pro", desc: "直连 API，无需中转，全球可访问（推荐）" },
-  { value: "akshare", label: "AKShare", desc: "需部署 Render.com 中转服务，数据更丰富" },
+  { value: "yahoo", label: "新浪/腾讯行情（免费）", desc: "无需 API Key，实时 A股指数和个股，立即可用（推荐）" },
+  { value: "tushare", label: "Tushare Pro", desc: "需要 120+ 积分权限，数据最全，含行业板块和北向资金" },
+  { value: "akshare", label: "AKShare", desc: "需部署中转服务，数据丰富，免费" },
 ];
 
 const AI_MODELS = [
@@ -16,6 +17,29 @@ const AI_MODELS = [
   { value: "qianwen", label: "通义千问 Max", desc: "中文金融理解强，速度快" },
   { value: "kimi", label: "月之暗面 k1.5", desc: "长文本处理佳，适合详细分析" },
 ];
+
+const REPORT_TEMPLATES = [
+  { value: "brief", label: "简洁版", desc: "各段精简，适合快速浏览" },
+  { value: "standard", label: "标准版", desc: "字数适中，推荐日常使用（默认）" },
+  { value: "detailed", label: "详细版", desc: "展开分析，适合深度阅读" },
+];
+
+function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      className="relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0"
+      style={{ background: checked ? "var(--accent)" : "var(--muted)" }}
+    >
+      <span
+        className={clsx(
+          "absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200",
+          checked ? "translate-x-5" : "translate-x-0.5"
+        )}
+      />
+    </button>
+  );
+}
 
 function RadioCard<T extends string>({
   options,
@@ -130,33 +154,93 @@ export default function SettingsPage() {
           />
         </div>
 
-        {/* 推送设置 */}
+        {/* 报告模版 */}
+        <div className="card animate-slide-up delay-150">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText size={16} style={{ color: "var(--accent)" }} />
+            <p className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>分析报告模版</p>
+          </div>
+          <RadioCard
+            options={REPORT_TEMPLATES}
+            value={(config.report_template ?? "standard") as "brief" | "standard" | "detailed"}
+            onChange={set("report_template")}
+          />
+        </div>
+
+        {/* 定时任务说明 */}
         <div className="card animate-slide-up delay-200">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock size={16} style={{ color: "var(--accent)" }} />
+            <p className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>定时任务</p>
+          </div>
+          <div className="p-4 rounded-lg space-y-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+            <p className="text-sm font-medium">当前定时：每个交易日 16:15（北京时间）自动触发分析</p>
+            <p className="text-xs" style={{ color: "var(--muted)" }}>
+              即 UTC 08:15，周一到周五。收盘后 75 分钟触发，确保 Tushare 数据已完整入库。需在 Supabase 中配置 pg_cron 后生效。
+            </p>
+          </div>
+        </div>
+
+        {/* 推送设置 */}
+        <div className="card animate-slide-up delay-250">
           <div className="flex items-center gap-2 mb-4">
             <Bell size={16} style={{ color: "var(--accent)" }} />
             <p className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>推送设置</p>
           </div>
-          <div className="flex items-center justify-between p-4 rounded-lg" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
-            <div>
-              <p className="text-sm font-medium">微信推送</p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>通过 Server酱 推送到微信</p>
-            </div>
-            <button
-              onClick={() => set("push_enabled")(config.push_enabled === "true" ? "false" : "true")}
-              className={clsx(
-                "relative w-11 h-6 rounded-full transition-colors duration-200"
-              )}
-              style={{
-                background: config.push_enabled === "true" ? "var(--accent)" : "var(--muted)",
-              }}
-            >
-              <span
-                className={clsx(
-                  "absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200",
-                  config.push_enabled === "true" ? "translate-x-5" : "translate-x-0.5"
-                )}
+          <div className="space-y-3">
+            {/* 微信推送 */}
+            <div className="flex items-center justify-between p-4 rounded-lg" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              <div>
+                <p className="text-sm font-medium">微信推送</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>通过 Server酱 推送到微信</p>
+              </div>
+              <ToggleSwitch
+                checked={config.push_enabled === "true"}
+                onChange={(v) => set("push_enabled")(v ? "true" : "false")}
               />
-            </button>
+            </div>
+
+            {/* 邮件推送 */}
+            <div className="p-4 rounded-lg space-y-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">邮件推送</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>通过 Resend API 发送 HTML 邮件报告</p>
+                </div>
+                <ToggleSwitch
+                  checked={config.email_enabled === "true"}
+                  onChange={(v) => set("email_enabled")(v ? "true" : "false")}
+                />
+              </div>
+
+              {config.email_enabled === "true" && (
+                <div className="space-y-2 pt-1 animate-fade-in">
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: "var(--muted)" }}>收件邮箱</label>
+                    <input
+                      type="email"
+                      className="w-full px-3 py-2 rounded-lg text-sm outline-none font-num"
+                      style={{ background: "var(--surface)", border: "1px solid var(--border-strong)", color: "var(--text)" }}
+                      placeholder="740225978@qq.com"
+                      value={config.email_address ?? "740225978@qq.com"}
+                      onChange={(e) => set("email_address")(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-start gap-2 p-3 rounded-lg" style={{ background: "rgba(56,189,248,0.05)", border: "1px solid rgba(56,189,248,0.15)" }}>
+                    <div className="mt-0.5 w-3.5 h-3.5 rounded-full flex-shrink-0 flex items-center justify-center text-xs" style={{ background: "rgba(56,189,248,0.2)", color: "var(--accent)" }}>i</div>
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: "var(--accent)" }}>需要配置 Resend API Key</p>
+                      <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                        1. 前往 <a href="https://resend.com" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>resend.com</a> 免费注册<br />
+                        2. 创建 API Key，复制 key（以 re_ 开头）<br />
+                        3. 在 Supabase → Edge Functions → Secrets 中添加：<br />
+                        &nbsp;&nbsp;<code className="font-num text-xs px-1 rounded" style={{ background: "rgba(255,255,255,0.08)" }}>RESEND_API_KEY = re_xxxx</code>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
