@@ -19,6 +19,8 @@ interface StockQuote {
   volume: number;
   amount: number;
   date: string;
+  /** 换手率%，腾讯字段 [38] */
+  turnover_rate: number;
 }
 
 async function fetchTencentQuotes(
@@ -64,6 +66,7 @@ async function fetchTencentQuotes(
       (prev_close > 0 ? ((current - prev_close) / prev_close) * 100 : 0);
     const volume = parseFloat(f[6]) || 0;
     const amount = (parseFloat(f[37]) || volume * current * 100) * 10000;
+    const turnover_rate = parseFloat(f[38]) || 0;
 
     // 日期字段[30]：20260310161415 → 2026-03-10
     const dt = f[30] ?? "";
@@ -72,7 +75,7 @@ async function fetchTencentQuotes(
         ? `${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)}`
         : "";
 
-    result[code] = { current, prev_close, change_pct, volume, amount, date };
+    result[code] = { current, prev_close, change_pct, volume, amount, date, turnover_rate };
   }
 
   return result;

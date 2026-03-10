@@ -31,6 +31,17 @@ export type PortfolioFund = {
   notes: string | null;
 };
 
+/** 报告里存的个股行情（按 stock_code 为 key） */
+export type ReportStockData = Record<
+  string,
+  { quote: { current: number; change_pct?: number; turnover_rate?: number; volume_ratio?: number }; fund_flow?: unknown }
+>;
+/** 报告里存的基金行情（按 fund_code 为 key） */
+export type ReportFundData = Record<
+  string,
+  { nav: number; change_pct?: number; acc_nav?: number; nav_date?: string }
+>;
+
 export type DailyReport = {
   id: number;
   report_date: string;
@@ -42,7 +53,12 @@ export type DailyReport = {
   tokens_used: number | null;
   duration_ms: number | null;
   created_at: string;
+  /** 大盘指数等（sh/sz/cyb/north_flow） */
   market_data: Record<string, unknown> | null;
+  /** 持仓股行情，key 为 stock_code */
+  stock_data: ReportStockData | null;
+  /** 持仓基金行情，key 为 fund_code */
+  fund_data: ReportFundData | null;
 };
 
 export type AppConfig = {

@@ -67,9 +67,8 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
   const [triggering, setTriggering] = useState(false);
 
   const market = latestReport?.market_data as Record<string, { current: number; change_pct: number; name: string }> | null;
-  const reportData = latestReport?.market_data as Record<string, unknown> | null;
-  const stockMarketData = reportData?.["stocks"] as Record<string, { quote: { current: number; change_pct?: number } }> | undefined;
-  const fundMarketData = reportData?.["funds"] as Record<string, { nav: number; change_pct?: number }> | undefined;
+  const stockMarketData = latestReport?.stock_data ?? undefined;
+  const fundMarketData = latestReport?.fund_data ?? undefined;
 
   const totalStockValue = stocks.reduce((sum, s) => {
     const price = stockMarketData?.[s.stock_code]?.quote?.current ?? s.cost_price ?? 0;
