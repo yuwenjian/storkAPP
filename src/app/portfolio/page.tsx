@@ -109,7 +109,18 @@ function StockForm({
       </div>
       <div className="flex gap-2 mt-4">
         <button
-          onClick={() => onSave({ ...form, shares: Number(form.shares) })}
+          onClick={() =>
+            onSave({
+              stock_code: form.stock_code,
+              stock_name: form.stock_name,
+              shares: Number(form.shares),
+              cost_price: form.cost_price === "" ? null : Number(form.cost_price),
+              stop_profit_price: form.stop_profit_price === "" ? null : Number(form.stop_profit_price),
+              stop_loss_price: form.stop_loss_price === "" ? null : Number(form.stop_loss_price),
+              market: form.market,
+              notes: form.notes || null,
+            })
+          }
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium"
           style={{ background: "var(--accent)", color: "#0a0e17" }}
         >
@@ -212,7 +223,16 @@ function FundForm({
       </div>
       <div className="flex gap-2 mt-4">
         <button
-          onClick={() => onSave({ ...form, shares: Number(form.shares) })}
+          onClick={() =>
+            onSave({
+              fund_code: form.fund_code,
+              fund_name: form.fund_name,
+              shares: Number(form.shares),
+              cost_price: form.cost_price === "" ? null : Number(form.cost_price),
+              fund_type: form.fund_type,
+              notes: form.notes || null,
+            })
+          }
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium"
           style={{ background: "var(--accent)", color: "#0a0e17" }}
         >
