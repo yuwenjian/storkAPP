@@ -20,10 +20,21 @@ interface LiveQuote {
   turnover_rate?: number;
 }
 
+/** 基金实时净值一条（来自 fund-proxy/天天基金） */
+interface LiveFundQuote {
+  nav: number;        // 官方单位净值
+  est_nav: number;    // 盘中估算净值
+  change_pct: number; // 今日涨跌幅%
+  nav_date: string;
+  est_time: string;
+}
+
 interface Props {
   latestReport: DailyReport | null;
   stocks: PortfolioStock[];
   funds: PortfolioFund[];
+  dataError?: string;
+  dataErrorMessage?: string;
 }
 
 function PctBadge({ value }: { value: number }) {
@@ -76,10 +87,11 @@ function IndexCard({ name, current, change_pct }: { name: string; current: numbe
 
 const INDEX_CODES = ["sh000001", "sz399001", "sz399006"] as const;
 
-export default function DashboardClient({ latestReport, stocks, funds }: Props) {
+export default function DashboardClient({ latestReport, stocks, funds, dataError, dataErrorMessage }: Props) {
   const [triggering, setTriggering] = useState(false);
   const [liveQuotes, setLiveQuotes] = useState<Record<string, LiveQuote>>({});
   const [liveMarket, setLiveMarket] = useState<Record<string, { current: number; change_pct: number }> | null>(null);
+  const [liveFundQuotes, setLiveFundQuotes] = useState<Record<string, LiveFundQuote>>({});
 
   const reportMarket = latestReport?.market_data as Record<string, { current: number; change_pct: number; name: string }> | null;
   const stockMarketData = latestReport?.stock_data ?? undefined;
@@ -114,12 +126,38 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
     }
   }, [stocks]);
 
+  const fetchLiveFundQuotes = useCallback(async () => {
+    if (funds.length === 0) return;
+    try {
+      const res = await fetch("/api/fund-proxy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codes: funds.map((f) => f.fund_code) }),
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      setLiveFundQuotes(json.quotes ?? {});
+    } catch {
+      // 静默失败，继续用报告数据
+    }
+  }, [funds]);
+
   useEffect(() => {
     fetchLiveQuotes();
-  }, [fetchLiveQuotes]);
+    fetchLiveFundQuotes();
+  }, [fetchLiveQuotes, fetchLiveFundQuotes]);
 
   const market = liveMarket ?? reportMarket;
   const getStockQuote = (s: PortfolioStock) => liveQuotes[s.stock_code] ?? stockMarketData?.[s.stock_code]?.quote;
+
+  /** 优先实时净值（est_nav），其次报告 nav，最后成本价 */
+  const getFundQuote = (f: PortfolioFund) => {
+    const live = liveFundQuotes[f.fund_code];
+    if (live) return { nav: live.est_nav > 0 ? live.est_nav : live.nav, change_pct: live.change_pct, nav_date: live.est_time, isLive: true };
+    const rep = fundMarketData?.[f.fund_code];
+    if (rep && rep.nav > 0) return { nav: rep.nav, change_pct: rep.change_pct ?? 0, nav_date: rep.nav_date ?? "", isLive: false };
+    return null;
+  };
 
   const totalStockValue = stocks.reduce((sum, s) => {
     const q = getStockQuote(s);
@@ -128,7 +166,8 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
   }, 0);
 
   const totalFundValue = funds.reduce((sum, f) => {
-    const nav = fundMarketData?.[f.fund_code]?.nav ?? f.cost_price ?? 0;
+    const fq = getFundQuote(f);
+    const nav = fq?.nav ?? f.cost_price ?? 0;
     return sum + nav * f.shares;
   }, 0);
 
@@ -151,11 +190,10 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
     }
   });
   funds.forEach((f) => {
-    const fd = fundMarketData?.[f.fund_code];
-    const nav = fd?.nav ?? 0;
-    const changePct = fd?.change_pct ?? 0;
-    if (nav > 0 && changePct !== undefined) {
-      todayPnlFunds += (nav * changePct / 100) * f.shares;
+    const fq = getFundQuote(f);
+    if (fq && fq.nav > 0 && fq.change_pct !== 0) {
+      const prevNav = fq.nav / (1 + fq.change_pct / 100);
+      todayPnlFunds += (fq.nav - prevNav) * f.shares;
     }
   });
   const todayPnlTotal = todayPnlStocks + todayPnlFunds;
@@ -200,6 +238,16 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
               ? `最新报告：${latestReport.report_date}`
               : "暂无报告，点击右上角手动触发"}
           </p>
+          {!latestReport && stocks.length === 0 && funds.length === 0 && !dataError && (
+            <p className="text-xs mt-2 px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--muted)", border: "1px solid var(--border)" }}>
+              💡 本地预览无数据时，请确认 <code className="px-1 rounded" style={{ background: "var(--surface)" }}>ClientProject/.env.local</code> 中已配置 <code className="px-1 rounded" style={{ background: "var(--surface)" }}>NEXT_PUBLIC_SUPABASE_URL</code> 与 <code className="px-1 rounded" style={{ background: "var(--surface)" }}>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>，保存后重启 <code className="px-1 rounded" style={{ background: "var(--surface)" }}>npm run dev</code>。部署到 Vercel 时需在项目设置里添加相同环境变量。
+            </p>
+          )}
+          {dataError && (
+            <div className="mt-2 px-3 py-2 rounded-lg text-xs" style={{ background: "rgba(248,113,113,0.1)", color: "var(--down)", border: "1px solid var(--down)" }}>
+              {dataError === "SUPABASE_NOT_CONFIGURED" ? dataErrorMessage : `数据加载异常：${dataErrorMessage}`}
+            </div>
+          )}
         </div>
         <button
           onClick={handleTrigger}
@@ -274,60 +322,48 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
                   return (
                     <div
                       key={s.id}
-                      className="flex items-center gap-4 py-4 px-3 rounded-lg hover:bg-white/[0.02] transition-colors border-b last:border-0"
+                      className="py-3.5 px-3 rounded-lg hover:bg-white/[0.02] transition-colors border-b last:border-0"
                       style={{ borderColor: "var(--border)" }}
                     >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold font-num shrink-0"
-                          style={{ background: "var(--surface-2)", color: "var(--accent)" }}
-                        >
-                          {s.stock_code.slice(-2)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{s.stock_name}</p>
+                      {/* 第一行：名称 + 持仓数 | 市值 + 今日盈亏 */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{s.stock_name}</p>
                           <p className="text-xs font-num mt-0.5" style={{ color: "var(--muted)" }}>
-                            {s.stock_code} · {s.shares.toLocaleString()} 股
+                            {s.shares.toLocaleString()} 股
                           </p>
                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 text-right shrink-0">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--muted)" }}>成本价</p>
-                          <p className="text-xs font-num">¥{costPrice.toFixed(2)}</p>
+                        <div className="text-right shrink-0">
+                          <p className="text-base font-num font-semibold" style={{ color: "var(--text)" }}>
+                            ¥{marketVal.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+                          </p>
+                          {todayPnl !== null && (
+                            <p className="text-xs font-num" style={{ color: todayPnl >= 0 ? "var(--up)" : "var(--down)" }}>
+                              今日 {todayPnl >= 0 ? "+" : ""}¥{todayPnl.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+                            </p>
+                          )}
                         </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--muted)" }}>最新价</p>
-                          <p className="text-xs font-num">
+                      </div>
+                      {/* 第二行：成本价 → 最新价 + 涨跌幅 | 持仓盈亏 */}
+                      <div className="flex items-center justify-between gap-2 mt-2">
+                        <p className="text-xs font-num" style={{ color: "var(--muted)" }}>
+                          成本 ¥{costPrice.toFixed(2)}
+                          <span className="mx-1.5" style={{ color: "var(--border)" }}>→</span>
+                          <span style={{ color: "var(--text-dim)" }}>
                             {hasLatestPrice ? `¥${currentPrice.toFixed(2)}` : "—"}
-                            {changePct != null && (
-                              <span className="ml-1" style={{ color: changePct >= 0 ? "var(--up)" : "var(--down)" }}>
-                                {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--muted)" }}>市值</p>
-                          <p className="text-sm font-num font-medium">
-                            ¥{marketVal.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--muted)" }}>持仓盈亏</p>
-                          <p className="text-xs font-num" style={{ color: costVal > 0 ? (pnl >= 0 ? "var(--up)" : "var(--down)") : "var(--muted)" }}>
-                            {costVal > 0 ? `${pnl >= 0 ? "+" : ""}¥${pnl.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%)` : "—"}
-                          </p>
-                        </div>
+                          </span>
+                          {changePct != null && (
+                            <span className="ml-1 font-medium" style={{ color: changePct >= 0 ? "var(--up)" : "var(--down)" }}>
+                              {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs font-num text-right" style={{ color: costVal > 0 ? (pnl >= 0 ? "var(--up)" : "var(--down)") : "var(--muted)" }}>
+                          {costVal > 0
+                            ? `持仓 ${pnl >= 0 ? "+" : ""}¥${pnl.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%)`
+                            : "—"}
+                        </p>
                       </div>
-                      {todayPnl !== null && (
-                        <div className="text-right w-20 shrink-0">
-                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--muted)" }}>今日盈亏</p>
-                          <p className="text-xs font-num font-medium" style={{ color: todayPnl >= 0 ? "var(--up)" : "var(--down)" }}>
-                            {todayPnl >= 0 ? "+" : ""}¥{todayPnl.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
-                          </p>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -353,73 +389,66 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
               <div className="space-y-0">
                 {funds.map((f) => {
                   const costNav = f.cost_price ?? 0;
-                  const fd = fundMarketData?.[f.fund_code];
-                  const latestNav = fd?.nav;
+                  const fq = getFundQuote(f);
+                  const latestNav = fq?.nav;
                   const currentNav = latestNav ?? costNav;
-                  const changePct = fd?.change_pct;
+                  const changePct = fq?.change_pct;
                   const marketVal = currentNav * f.shares;
                   const costVal = costNav * f.shares;
                   const pnl = marketVal - costVal;
                   const pnlPct = costVal > 0 ? (pnl / costVal) * 100 : 0;
-                  const hasLatestNav = (latestNav ?? null) != null;
-                  const todayPnlFund = hasLatestNav && changePct != null ? (marketVal * changePct) / 100 : null;
+                  const hasLatestNav = latestNav != null && latestNav > 0;
+                  const todayPnlFund = hasLatestNav && changePct != null && changePct !== 0
+                    ? (currentNav - currentNav / (1 + changePct / 100)) * f.shares
+                    : null;
                   return (
                     <div
                       key={f.id}
-                      className="flex items-center gap-4 py-4 px-3 rounded-lg hover:bg-white/[0.02] transition-colors border-b last:border-0"
+                      className="py-3.5 px-3 rounded-lg hover:bg-white/[0.02] transition-colors border-b last:border-0"
                       style={{ borderColor: "var(--border)" }}
                     >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
-                          style={{ background: "rgba(52,211,153,0.12)", color: "var(--up)" }}
-                        >
-                          基
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{f.fund_name}</p>
+                      {/* 第一行：名称 + 份额 | 市值 + 今日盈亏 */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{f.fund_name}</p>
                           <p className="text-xs font-num mt-0.5" style={{ color: "var(--muted)" }}>
-                            {f.fund_code} · {f.shares.toLocaleString()} 份
+                            {f.shares.toLocaleString()} 份
                           </p>
                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 text-right shrink-0">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--muted)" }}>成本净值</p>
-                          <p className="text-xs font-num">¥{costNav.toFixed(4)}</p>
+                        <div className="text-right shrink-0">
+                          <p className="text-base font-num font-semibold" style={{ color: "var(--text)" }}>
+                            ¥{marketVal.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+                          </p>
+                          {todayPnlFund !== null && (
+                            <p className="text-xs font-num" style={{ color: todayPnlFund >= 0 ? "var(--up)" : "var(--down)" }}>
+                              今日 {todayPnlFund >= 0 ? "+" : ""}¥{todayPnlFund.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+                            </p>
+                          )}
                         </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--muted)" }}>最新净值</p>
-                          <p className="text-xs font-num">
+                      </div>
+                      {/* 第二行：成本净值 → 最新净值 + 涨跌幅 | 持仓盈亏 */}
+                      <div className="flex items-center justify-between gap-2 mt-2">
+                        <p className="text-xs font-num" style={{ color: "var(--muted)" }}>
+                          成本 ¥{costNav.toFixed(4)}
+                          <span className="mx-1.5" style={{ color: "var(--border)" }}>→</span>
+                          <span style={{ color: "var(--text-dim)" }}>
                             {hasLatestNav ? `¥${currentNav.toFixed(4)}` : "—"}
-                            {changePct != null && (
-                              <span className="ml-1" style={{ color: changePct >= 0 ? "var(--up)" : "var(--down)" }}>
-                                {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--muted)" }}>市值</p>
-                          <p className="text-sm font-num font-medium">
-                            ¥{marketVal.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--muted)" }}>持仓盈亏</p>
-                          <p className="text-xs font-num" style={{ color: costVal > 0 ? (pnl >= 0 ? "var(--up)" : "var(--down)") : "var(--muted)" }}>
-                            {costVal > 0 ? `${pnl >= 0 ? "+" : ""}¥${pnl.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%)` : "—"}
-                          </p>
-                        </div>
+                          </span>
+                          {changePct != null && (
+                            <span className="ml-1 font-medium" style={{ color: changePct >= 0 ? "var(--up)" : "var(--down)" }}>
+                              {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                            </span>
+                          )}
+                          {fq?.isLive && (
+                            <span className="ml-1.5 text-[10px] px-1 rounded" style={{ background: "var(--up-bg, rgba(34,197,94,0.1))", color: "var(--up)" }}>估算</span>
+                          )}
+                        </p>
+                        <p className="text-xs font-num text-right" style={{ color: costVal > 0 ? (pnl >= 0 ? "var(--up)" : "var(--down)") : "var(--muted)" }}>
+                          {costVal > 0
+                            ? `持仓 ${pnl >= 0 ? "+" : ""}¥${pnl.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%)`
+                            : "—"}
+                        </p>
                       </div>
-                      {todayPnlFund !== null && (
-                        <div className="text-right w-20 shrink-0">
-                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--muted)" }}>今日盈亏</p>
-                          <p className="text-xs font-num font-medium" style={{ color: todayPnlFund >= 0 ? "var(--up)" : "var(--down)" }}>
-                            {todayPnlFund >= 0 ? "+" : ""}¥{todayPnlFund.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
-                          </p>
-                        </div>
-                      )}
                     </div>
                   );
                 })}

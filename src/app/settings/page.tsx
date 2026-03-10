@@ -92,12 +92,26 @@ export default function SettingsPage() {
 
   const loadConfig = useCallback(async () => {
     if (!supabase) return;
-    const { data } = await supabase.from("app_config").select("key, value");
-    if (data) {
-      const map: Record<string, string> = {};
-      for (const row of data as AppConfig[]) map[row.key] = row.value;
-      setConfig(map);
+    const { data, error } = await supabase.from("app_config").select("key, value");
+    if (error) {
+      console.error("加载配置失败:", error);
+      toast.error(`加载配置失败：${error.message}`);
+      return;
     }
+    // 先设置默认值，再用 DB 数据覆盖
+    const defaults: Record<string, string> = {
+      data_source: "yahoo",
+      ai_model: "deepseek",
+      push_enabled: "false",
+      report_template: "standard",
+      email_enabled: "false",
+      email_address: "",
+    };
+    const map: Record<string, string> = { ...defaults };
+    for (const row of (data ?? []) as AppConfig[]) {
+      map[row.key] = row.value;
+    }
+    setConfig(map);
   }, []);
 
   useEffect(() => { loadConfig(); }, [loadConfig]);
@@ -106,16 +120,34 @@ export default function SettingsPage() {
     setConfig((prev) => ({ ...prev, [key]: value }));
 
   async function save() {
-    if (!supabase) { toast.error("未配置 Supabase"); return; }
+    if (!supabase) { toast.error("未配置 Supabase，请检查环境变量"); return; }
     const db = supabase;
     setSaving(true);
     const t = toast.loading("保存配置...");
-    const updates = Object.entries(config).map(([key, value]) =>
-      db.from("app_config").update({ value }).eq("key", key)
-    );
-    await Promise.all(updates);
-    toast.success("配置已保存，下次分析生效", { id: t });
-    setSaving(false);
+    try {
+      // 用 upsert 而不是 update：key 不存在时自动 insert，存在时更新
+      const rows = Object.entries(config).map(([key, value]) => ({
+        key,
+        value,
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error } = await db
+        .from("app_config")
+        .upsert(rows, { onConflict: "key" });
+
+      if (error) {
+        console.error("保存配置失败:", error);
+        toast.error(`保存失败：${error.message}`, { id: t });
+      } else {
+        toast.success("配置已保存，下次分析时生效", { id: t });
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`保存异常：${msg}`, { id: t });
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
