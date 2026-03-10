@@ -169,13 +169,14 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
               <div className="space-y-2">
                 {stocks.map((s) => {
                   const costPrice = s.cost_price ?? 0;
-                  const currentPrice = stockMarketData?.[s.stock_code]?.quote?.current ?? costPrice;
+                  const latestPrice = stockMarketData?.[s.stock_code]?.quote?.current;
+                  const currentPrice = latestPrice ?? costPrice;
                   const changePct = stockMarketData?.[s.stock_code]?.quote?.change_pct;
                   const marketVal = currentPrice * s.shares;
                   const costVal = costPrice * s.shares;
                   const pnl = marketVal - costVal;
                   const pnlPct = costVal > 0 ? (pnl / costVal) * 100 : 0;
-                  const hasMarketData = !!stockMarketData?.[s.stock_code];
+                  const hasLatestPrice = latestPrice !== undefined && latestPrice !== null;
                   return (
                     <div
                       key={s.id}
@@ -194,31 +195,32 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
                           <p className="text-xs font-num" style={{ color: "var(--muted)" }}>
                             {s.stock_code} · {s.shares.toLocaleString()} 股
                           </p>
-                          {hasMarketData && (
-                            <p className="text-xs font-num mt-0.5" style={{ color: "var(--muted)" }}>
-                              现价 ¥{currentPrice.toFixed(2)}
-                              {changePct !== undefined && (
-                                <span className="ml-1" style={{ color: changePct >= 0 ? "var(--up)" : "var(--down)" }}>
-                                  {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
-                                </span>
-                              )}
-                            </p>
-                          )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-num">
+                      <div className="text-right min-w-[140px]">
+                        <p className="text-xs font-num mb-0.5" style={{ color: "var(--muted)" }}>
+                          成本价 ¥{costPrice.toFixed(2)}
+                        </p>
+                        <p className="text-xs font-num mb-1" style={{ color: "var(--text-dim)" }}>
+                          最新价 {hasLatestPrice ? `¥${currentPrice.toFixed(2)}` : "—"}
+                          {changePct !== undefined && (
+                            <span className="ml-1" style={{ color: changePct >= 0 ? "var(--up)" : "var(--down)" }}>
+                              {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-sm font-num font-medium">
                           ¥{marketVal.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </p>
-                        <p className="text-xs font-num" style={{ color: "var(--muted)" }}>
-                          成本 ¥{costPrice.toFixed(2)}
+                        <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+                          {hasLatestPrice ? "最新价×股数" : "按成本价估算"}
                         </p>
-                        {hasMarketData && costVal > 0 && (
+                        {hasLatestPrice && costVal > 0 && (
                           <p
                             className="text-xs font-num mt-0.5"
                             style={{ color: pnl >= 0 ? "var(--up)" : "var(--down)" }}
                           >
-                            {pnl >= 0 ? "+" : ""}¥{pnl.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            盈亏 {pnl >= 0 ? "+" : ""}¥{pnl.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             {" "}({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%)
                           </p>
                         )}
@@ -248,13 +250,14 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
               <div className="space-y-2">
                 {funds.map((f) => {
                   const costNav = f.cost_price ?? 0;
-                  const currentNav = fundMarketData?.[f.fund_code]?.nav ?? costNav;
+                  const latestNav = fundMarketData?.[f.fund_code]?.nav;
+                  const currentNav = latestNav ?? costNav;
                   const changePct = fundMarketData?.[f.fund_code]?.change_pct;
                   const marketVal = currentNav * f.shares;
                   const costVal = costNav * f.shares;
                   const pnl = marketVal - costVal;
                   const pnlPct = costVal > 0 ? (pnl / costVal) * 100 : 0;
-                  const hasMarketData = !!fundMarketData?.[f.fund_code];
+                  const hasLatestNav = latestNav !== undefined && latestNav !== null;
                   return (
                     <div
                       key={f.id}
@@ -273,31 +276,32 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
                           <p className="text-xs font-num" style={{ color: "var(--muted)" }}>
                             {f.fund_code} · {f.shares.toLocaleString()} 份
                           </p>
-                          {hasMarketData && (
-                            <p className="text-xs font-num mt-0.5" style={{ color: "var(--muted)" }}>
-                              现净值 ¥{currentNav.toFixed(4)}
-                              {changePct !== undefined && (
-                                <span className="ml-1" style={{ color: changePct >= 0 ? "var(--up)" : "var(--down)" }}>
-                                  {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
-                                </span>
-                              )}
-                            </p>
-                          )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-num">
-                          ¥{marketVal.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                        </p>
-                        <p className="text-xs font-num" style={{ color: "var(--muted)" }}>
+                      <div className="text-right min-w-[140px]">
+                        <p className="text-xs font-num mb-0.5" style={{ color: "var(--muted)" }}>
                           成本净值 ¥{costNav.toFixed(4)}
                         </p>
-                        {hasMarketData && costVal > 0 && (
+                        <p className="text-xs font-num mb-1" style={{ color: "var(--text-dim)" }}>
+                          最新净值 {hasLatestNav ? `¥${currentNav.toFixed(4)}` : "—"}
+                          {changePct !== undefined && (
+                            <span className="ml-1" style={{ color: changePct >= 0 ? "var(--up)" : "var(--down)" }}>
+                              {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-sm font-num font-medium">
+                          ¥{marketVal.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+                          {hasLatestNav ? "最新净值×份额" : "按成本净值估算"}
+                        </p>
+                        {hasLatestNav && costVal > 0 && (
                           <p
                             className="text-xs font-num mt-0.5"
                             style={{ color: pnl >= 0 ? "var(--up)" : "var(--down)" }}
                           >
-                            {pnl >= 0 ? "+" : ""}¥{pnl.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            盈亏 {pnl >= 0 ? "+" : ""}¥{pnl.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             {" "}({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%)
                           </p>
                         )}
@@ -317,16 +321,19 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
             <p className="text-xs mb-3 uppercase tracking-widest" style={{ color: "var(--muted)" }}>
               估算总资产
             </p>
+            <p className="text-xs mb-1" style={{ color: "var(--muted)" }}>
+              股票与基金最新市值之和
+            </p>
             <p className="font-num text-3xl font-medium" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
               ¥{(totalStockValue + totalFundValue).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
               <div className="card-sm">
-                <p style={{ color: "var(--muted)" }}>股票</p>
+                <p style={{ color: "var(--muted)" }}>股票（最新价×股数）</p>
                 <p className="font-num mt-0.5">¥{totalStockValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}</p>
               </div>
               <div className="card-sm">
-                <p style={{ color: "var(--muted)" }}>基金</p>
+                <p style={{ color: "var(--muted)" }}>基金（最新净值×份额）</p>
                 <p className="font-num mt-0.5">¥{totalFundValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}</p>
               </div>
             </div>
