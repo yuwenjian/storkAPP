@@ -67,18 +67,17 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
   const [triggering, setTriggering] = useState(false);
 
   const market = latestReport?.market_data as Record<string, { current: number; change_pct: number; name: string }> | null;
+  const reportData = latestReport?.market_data as Record<string, unknown> | null;
+  const stockMarketData = reportData?.["stocks"] as Record<string, { quote: { current: number; change_pct?: number } }> | undefined;
+  const fundMarketData = reportData?.["funds"] as Record<string, { nav: number; change_pct?: number }> | undefined;
 
   const totalStockValue = stocks.reduce((sum, s) => {
-    const data = (latestReport?.market_data as Record<string, unknown> | null);
-    const stockData = data?.["stocks"] as Record<string, { quote: { current: number } }> | undefined;
-    const price = stockData?.[s.stock_code]?.quote?.current ?? s.cost_price ?? 0;
+    const price = stockMarketData?.[s.stock_code]?.quote?.current ?? s.cost_price ?? 0;
     return sum + price * s.shares;
   }, 0);
 
   const totalFundValue = funds.reduce((sum, f) => {
-    const data = (latestReport?.market_data as Record<string, unknown> | null);
-    const fundData = data?.["funds"] as Record<string, { nav: number }> | undefined;
-    const nav = fundData?.[f.fund_code]?.nav ?? f.cost_price ?? 0;
+    const nav = fundMarketData?.[f.fund_code]?.nav ?? f.cost_price ?? 0;
     return sum + nav * f.shares;
   }, 0);
 
@@ -170,11 +169,17 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
               <div className="space-y-2">
                 {stocks.map((s) => {
                   const costPrice = s.cost_price ?? 0;
-                  const marketVal = costPrice * s.shares;
+                  const currentPrice = stockMarketData?.[s.stock_code]?.quote?.current ?? costPrice;
+                  const changePct = stockMarketData?.[s.stock_code]?.quote?.change_pct;
+                  const marketVal = currentPrice * s.shares;
+                  const costVal = costPrice * s.shares;
+                  const pnl = marketVal - costVal;
+                  const pnlPct = costVal > 0 ? (pnl / costVal) * 100 : 0;
+                  const hasMarketData = !!stockMarketData?.[s.stock_code];
                   return (
                     <div
                       key={s.id}
-                      className="flex items-center justify-between py-2 border-b last:border-0"
+                      className="flex items-center justify-between py-3 border-b last:border-0"
                       style={{ borderColor: "var(--border)" }}
                     >
                       <div className="flex items-center gap-3">
@@ -189,15 +194,34 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
                           <p className="text-xs font-num" style={{ color: "var(--muted)" }}>
                             {s.stock_code} · {s.shares.toLocaleString()} 股
                           </p>
+                          {hasMarketData && (
+                            <p className="text-xs font-num mt-0.5" style={{ color: "var(--muted)" }}>
+                              现价 ¥{currentPrice.toFixed(2)}
+                              {changePct !== undefined && (
+                                <span className="ml-1" style={{ color: changePct >= 0 ? "var(--up)" : "var(--down)" }}>
+                                  {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                                </span>
+                              )}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-num">
-                          ¥{marketVal.toLocaleString("zh-CN", { minimumFractionDigits: 0 })}
+                          ¥{marketVal.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </p>
                         <p className="text-xs font-num" style={{ color: "var(--muted)" }}>
                           成本 ¥{costPrice.toFixed(2)}
                         </p>
+                        {hasMarketData && costVal > 0 && (
+                          <p
+                            className="text-xs font-num mt-0.5"
+                            style={{ color: pnl >= 0 ? "var(--up)" : "var(--down)" }}
+                          >
+                            {pnl >= 0 ? "+" : ""}¥{pnl.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            {" "}({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%)
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -224,11 +248,17 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
               <div className="space-y-2">
                 {funds.map((f) => {
                   const costNav = f.cost_price ?? 0;
-                  const marketVal = costNav * f.shares;
+                  const currentNav = fundMarketData?.[f.fund_code]?.nav ?? costNav;
+                  const changePct = fundMarketData?.[f.fund_code]?.change_pct;
+                  const marketVal = currentNav * f.shares;
+                  const costVal = costNav * f.shares;
+                  const pnl = marketVal - costVal;
+                  const pnlPct = costVal > 0 ? (pnl / costVal) * 100 : 0;
+                  const hasMarketData = !!fundMarketData?.[f.fund_code];
                   return (
                     <div
                       key={f.id}
-                      className="flex items-center justify-between py-2 border-b last:border-0"
+                      className="flex items-center justify-between py-3 border-b last:border-0"
                       style={{ borderColor: "var(--border)" }}
                     >
                       <div className="flex items-center gap-3">
@@ -243,15 +273,34 @@ export default function DashboardClient({ latestReport, stocks, funds }: Props) 
                           <p className="text-xs font-num" style={{ color: "var(--muted)" }}>
                             {f.fund_code} · {f.shares.toLocaleString()} 份
                           </p>
+                          {hasMarketData && (
+                            <p className="text-xs font-num mt-0.5" style={{ color: "var(--muted)" }}>
+                              现净值 ¥{currentNav.toFixed(4)}
+                              {changePct !== undefined && (
+                                <span className="ml-1" style={{ color: changePct >= 0 ? "var(--up)" : "var(--down)" }}>
+                                  {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                                </span>
+                              )}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-num">
-                          ¥{marketVal.toLocaleString("zh-CN", { minimumFractionDigits: 0 })}
+                          ¥{marketVal.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </p>
                         <p className="text-xs font-num" style={{ color: "var(--muted)" }}>
                           成本净值 ¥{costNav.toFixed(4)}
                         </p>
+                        {hasMarketData && costVal > 0 && (
+                          <p
+                            className="text-xs font-num mt-0.5"
+                            style={{ color: pnl >= 0 ? "var(--up)" : "var(--down)" }}
+                          >
+                            {pnl >= 0 ? "+" : ""}¥{pnl.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            {" "}({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%)
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
