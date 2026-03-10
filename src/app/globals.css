@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0e17;
+  --surface: #111827;
+  --surface-2: #1a2235;
+  --border: rgba(255,255,255,0.07);
+  --border-strong: rgba(255,255,255,0.12);
+  --muted: #6b7280;
+  --text: #e8eaf0;
+  --text-dim: #9ca3af;
+  --accent: #38bdf8;
+  --accent-dim: rgba(56,189,248,0.1);
+  --up: #34d399;
+  --up-dim: rgba(52,211,153,0.1);
+  --down: #f87171;
+  --down-dim: rgba(248,113,113,0.1);
+  --flat: #94a3b8;
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-display: 'Syne', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+/* 数字字体 */
+.font-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* 涨跌色 */
+.text-up { color: var(--up); }
+.text-down { color: var(--down); }
+.text-flat { color: var(--flat); }
+
+.bg-up { background: var(--up-dim); }
+.bg-down { background: var(--down-dim); }
+
+/* 卡片 */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+.card-sm {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+/* 玻璃态 */
+.glass {
+  background: rgba(17,24,39,0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+/* 动画延迟 */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* 渐显（默认隐藏，动画后显示）*/
+.animate-fade-in,
+.animate-slide-up {
+  opacity: 0;
+  animation-fill-mode: forwards;
+}
