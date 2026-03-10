@@ -59,7 +59,7 @@ async function fetchFundNav(code: string): Promise<FundQuote | null> {
     }
 
     // 提取 JSONP 里的 JSON：jsonpgz({...});
-    const match = text.match(/jsonpgz\((\{.*?\})\)/s);
+    const match = text.match(/jsonpgz\((\{[\s\S]*?\})\)/);
     if (!match) return null;
 
     const data = JSON.parse(match[1]) as Record<string, string>;
