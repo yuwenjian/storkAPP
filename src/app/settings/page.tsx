@@ -83,10 +83,11 @@ export default function SettingsPage() {
 
   async function save() {
     if (!supabase) { toast.error("未配置 Supabase"); return; }
+    const db = supabase;
     setSaving(true);
     const t = toast.loading("保存配置...");
     const updates = Object.entries(config).map(([key, value]) =>
-      supabase.from("app_config").update({ value }).eq("key", key)
+      db.from("app_config").update({ value }).eq("key", key)
     );
     await Promise.all(updates);
     toast.success("配置已保存，下次分析生效", { id: t });
