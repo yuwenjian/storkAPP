@@ -53,7 +53,8 @@ async function fetchFundNav(code: string): Promise<FundQuote | null> {
     const buf = await res.arrayBuffer();
     const bytes = new Uint8Array(buf);
     let text = "";
-    for (const b of bytes) {
+    for (let i = 0; i < bytes.length; i++) {
+      const b = bytes[i];
       text += b < 128 ? String.fromCharCode(b) : "?";
     }
 
