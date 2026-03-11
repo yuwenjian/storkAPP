@@ -270,7 +270,7 @@ export default function DashboardClient({ latestReport, stocks, funds, appConfig
   const configDataSource = appConfig["data_source"] ?? "yahoo";
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl">
+    <div className="px-3 py-4 md:p-8 max-w-6xl">
       {/* 顶部标题行 */}
       <div className="flex items-start justify-between mb-5 md:mb-8 animate-fade-in gap-3">
         <div className="min-w-0 flex-1">

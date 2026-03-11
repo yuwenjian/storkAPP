@@ -57,13 +57,23 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 20px;
+  padding: 14px 5px;
+}
+@media (min-width: 768px) {
+  .card {
+    padding: 20px;
+  }
 }
 .card-sm {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 14px 16px;
+  padding: 12px 14px;
+}
+@media (min-width: 768px) {
+  .card-sm {
+    padding: 14px 16px;
+  }
 }
 
 /* 玻璃态 */

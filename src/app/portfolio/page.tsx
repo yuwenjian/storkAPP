@@ -474,7 +474,7 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl">
+    <div className="px-3 py-4 md:p-8 max-w-4xl">
       <div className="mb-6 animate-fade-in">
         <h1 className="text-xl md:text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>持仓管理</h1>
         <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>管理参与每日分析的股票和基金持仓</p>

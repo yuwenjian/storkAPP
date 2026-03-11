@@ -88,7 +88,7 @@ function ReportRow({ report }: { report: DailyReport }) {
 
 export default function ReportsClient({ reports }: { reports: DailyReport[] }) {
   return (
-    <div className="p-4 md:p-8 max-w-4xl">
+    <div className="px-3 py-4 md:p-8 max-w-4xl">
       <div className="mb-6 animate-fade-in">
         <h1 className="text-xl md:text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>历史报告</h1>
         <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>最近 30 天的每日分析报告</p>
