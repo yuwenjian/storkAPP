@@ -10,17 +10,13 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",  // 状态栏透明（显示内容延伸到顶部）
+    statusBarStyle: "black-translucent",
     title: "StockPulse",
   },
   formatDetection: {
-    telephone: false,   // 禁止自动识别电话号码（避免股票代码被识别）
+    telephone: false,
   },
-  icons: {
-    apple: [
-      { url: "/apple-icon", sizes: "180x180" },
-    ],
-  },
+  // 不在此处指定 icons，让 app/apple-icon.png 和 app/icon.png 文件约定自动生效
 };
 
 export const viewport: Viewport = {
@@ -43,6 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-title" content="StockPulse" />
         {/* 防止 iOS Safari 长按文字选中影响体验 */}
         <meta name="format-detection" content="telephone=no" />
+        {/* 显式指定 Apple Touch Icon，确保 iOS 使用正确图标 */}
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
       </head>
       <body>
         <div className="flex min-h-screen">
