@@ -2,6 +2,11 @@ import { supabase } from "@/lib/supabase";
 import type { DailyReport, PortfolioStock, PortfolioFund, AppConfig } from "@/lib/supabase";
 import DashboardClient from "@/components/DashboardClient";
 
+// 禁止 Next.js 缓存，确保每次请求都从 Supabase 获取最新数据
+// （持仓随时可能变更，必须实时查询）
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
+
 async function getDashboardData() {
   if (!supabase) {
     return {

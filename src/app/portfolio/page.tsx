@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase, type PortfolioStock, type PortfolioFund } from "@/lib/supabase";
-import { Plus, Trash2, Edit2, X, Check, TrendingUp } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Check, TrendingUp, Loader2, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import { clsx } from "clsx";
 
@@ -27,8 +27,51 @@ function StockForm({
     market: initial?.market ?? "SZ",
     notes: initial?.notes ?? "",
   });
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(false);
+  const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const f = (k: string) => (v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  // 代码输入后自动查询名称+交易所
+  const lookupStock = useCallback(async (code: string) => {
+    const clean = code.trim().replace(/\D/g, "");
+    if (clean.length < 5) return;
+    setLookupLoading(true);
+    setAutoFilled(false);
+    try {
+      const res = await fetch("/api/stock-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: clean }),
+      });
+      const data = await res.json();
+      if (res.ok && data.name) {
+        setForm((prev) => ({ ...prev, stock_name: data.name, market: data.market }));
+        setAutoFilled(true);
+        toast.success(`已自动填入：${data.name}`, { duration: 2000 });
+      } else {
+        toast.error(data.error ?? "未找到该股票代码", { duration: 2000 });
+      }
+    } catch {
+      // 网络错误时静默失败，用户可手动填写
+    } finally {
+      setLookupLoading(false);
+    }
+  }, []);
+
+  // 代码变化 500ms 后自动触发查询（防抖）
+  const handleCodeChange = (v: string) => {
+    f("stock_code")(v);
+    setAutoFilled(false);
+    if (lookupTimer.current) clearTimeout(lookupTimer.current);
+    const clean = v.trim().replace(/\D/g, "");
+    if (clean.length >= 5) {
+      lookupTimer.current = setTimeout(() => lookupStock(clean), 500);
+    }
+  };
+
+  const inputStyle = { background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" };
 
   return (
     <div className="card mt-4 animate-fade-in">
@@ -36,46 +79,82 @@ function StockForm({
         {initial?.id ? "编辑股票" : "添加股票"}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {(
-          [
-            ["stock_code", "股票代码", "000001"],
-            ["stock_name", "股票名称", "平安银行"],
-          ] as [string, string, string][]
-        ).map(([key, label, placeholder]) => (
-          <div key={key}>
-            <label className="text-xs mb-1 block" style={{ color: "var(--muted)" }}>{label}</label>
+        {/* 股票代码 */}
+        <div>
+          <label className="text-xs mb-1 block" style={{ color: "var(--muted)" }}>股票代码</label>
+          <div className="relative">
             <input
-              className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
-              placeholder={placeholder}
-              value={(form as Record<string, unknown>)[key] as string}
-              onChange={(e) => f(key)(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none font-num transition-colors pr-8"
+              style={inputStyle}
+              placeholder="000001"
+              value={form.stock_code}
+              onChange={(e) => handleCodeChange(e.target.value)}
             />
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+              {lookupLoading ? (
+                <Loader2 size={14} className="animate-spin" style={{ color: "var(--accent)" }} />
+              ) : autoFilled ? (
+                <Sparkles size={13} style={{ color: "var(--up)" }} />
+              ) : null}
+            </div>
           </div>
-        ))}
+        </div>
+
+        {/* 股票名称（自动填充后只读提示） */}
+        <div>
+          <label className="text-xs mb-1 flex items-center gap-1" style={{ color: "var(--muted)" }}>
+            股票名称
+            {autoFilled && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "var(--up)" }}>
+                已自动填入
+              </span>
+            )}
+          </label>
+          <input
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors"
+            style={inputStyle}
+            placeholder="输入代码后自动填入"
+            value={form.stock_name}
+            onChange={(e) => { f("stock_name")(e.target.value); setAutoFilled(false); }}
+          />
+        </div>
+
+        {/* 持仓数量 */}
         <div>
           <label className="text-xs mb-1 block" style={{ color: "var(--muted)" }}>持仓数量（股）</label>
           <input
             type="number"
             className="w-full px-3 py-2 rounded-lg text-sm outline-none font-num"
-            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+            style={inputStyle}
             placeholder="1000"
             value={form.shares}
             onChange={(e) => f("shares")(e.target.value)}
           />
         </div>
+
+        {/* 交易所（自动填充） */}
         <div>
-          <label className="text-xs mb-1 block" style={{ color: "var(--muted)" }}>交易所</label>
+          <label className="text-xs mb-1 flex items-center gap-1" style={{ color: "var(--muted)" }}>
+            交易所
+            {autoFilled && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "var(--up)" }}>
+                已自动识别
+              </span>
+            )}
+          </label>
           <select
             className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+            style={inputStyle}
             value={form.market}
             onChange={(e) => f("market")(e.target.value)}
           >
             <option value="SZ">深交所（000/002/300）</option>
             <option value="SH">上交所（600/688）</option>
+            <option value="BJ">北交所（830/831）</option>
           </select>
         </div>
+
+        {/* 成本价、止盈、止损 */}
         {(
           [
             ["cost_price", "成本价（元）", "12.50"],
@@ -89,18 +168,19 @@ function StockForm({
               type="number"
               step="0.01"
               className="w-full px-3 py-2 rounded-lg text-sm outline-none font-num"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+              style={inputStyle}
               placeholder={placeholder}
               value={(form as Record<string, unknown>)[key] as string}
               onChange={(e) => f(key)(e.target.value)}
             />
           </div>
         ))}
-        <div className="col-span-2">
+
+        <div className="sm:col-span-2">
           <label className="text-xs mb-1 block" style={{ color: "var(--muted)" }}>备注（可选）</label>
           <input
             className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+            style={inputStyle}
             placeholder="例：长期持有"
             value={form.notes}
             onChange={(e) => f("notes")(e.target.value)}
@@ -155,49 +235,124 @@ function FundForm({
     fund_type: initial?.fund_type ?? "mixed",
     notes: initial?.notes ?? "",
   });
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(false);
+  const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const f = (k: string) => (v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  // 代码输入后自动查询名称+类型
+  const lookupFund = useCallback(async (code: string) => {
+    const clean = code.trim().replace(/\D/g, "");
+    if (clean.length < 5) return;
+    setLookupLoading(true);
+    setAutoFilled(false);
+    try {
+      const res = await fetch("/api/fund-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: clean }),
+      });
+      const data = await res.json();
+      if (res.ok && data.name) {
+        setForm((prev) => ({ ...prev, fund_name: data.name, fund_type: data.fund_type }));
+        setAutoFilled(true);
+        toast.success(`已自动填入：${data.name}（${data.type_name}）`, { duration: 2000 });
+      } else {
+        toast.error(data.error ?? "未找到该基金代码", { duration: 2000 });
+      }
+    } catch {
+      // 静默失败
+    } finally {
+      setLookupLoading(false);
+    }
+  }, []);
+
+  const handleCodeChange = (v: string) => {
+    f("fund_code")(v);
+    setAutoFilled(false);
+    if (lookupTimer.current) clearTimeout(lookupTimer.current);
+    const clean = v.trim().replace(/\D/g, "");
+    if (clean.length >= 5) {
+      lookupTimer.current = setTimeout(() => lookupFund(clean), 500);
+    }
+  };
+
+  const inputStyle = { background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" };
 
   return (
     <div className="card mt-4 animate-fade-in">
       <p className="text-sm font-semibold mb-4" style={{ fontFamily: "var(--font-display)" }}>
         {initial?.id ? "编辑基金" : "添加基金"}
       </p>
-      <div className="grid grid-cols-2 gap-3">
-        {(
-          [
-            ["fund_code", "基金代码", "005827"],
-            ["fund_name", "基金名称", "易方达蓝筹精选混合"],
-          ] as [string, string, string][]
-        ).map(([key, label, placeholder]) => (
-          <div key={key}>
-            <label className="text-xs mb-1 block" style={{ color: "var(--muted)" }}>{label}</label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* 基金代码 */}
+        <div>
+          <label className="text-xs mb-1 block" style={{ color: "var(--muted)" }}>基金代码</label>
+          <div className="relative">
             <input
-              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
-              placeholder={placeholder}
-              value={(form as Record<string, unknown>)[key] as string}
-              onChange={(e) => f(key)(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none font-num transition-colors pr-8"
+              style={inputStyle}
+              placeholder="005827"
+              value={form.fund_code}
+              onChange={(e) => handleCodeChange(e.target.value)}
             />
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+              {lookupLoading ? (
+                <Loader2 size={14} className="animate-spin" style={{ color: "var(--accent)" }} />
+              ) : autoFilled ? (
+                <Sparkles size={13} style={{ color: "var(--up)" }} />
+              ) : null}
+            </div>
           </div>
-        ))}
+        </div>
+
+        {/* 基金名称（自动填充） */}
+        <div>
+          <label className="text-xs mb-1 flex items-center gap-1" style={{ color: "var(--muted)" }}>
+            基金名称
+            {autoFilled && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "var(--up)" }}>
+                已自动填入
+              </span>
+            )}
+          </label>
+          <input
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors"
+            style={inputStyle}
+            placeholder="输入代码后自动填入"
+            value={form.fund_name}
+            onChange={(e) => { f("fund_name")(e.target.value); setAutoFilled(false); }}
+          />
+        </div>
+
+        {/* 持有份额 */}
         <div>
           <label className="text-xs mb-1 block" style={{ color: "var(--muted)" }}>持有份额</label>
           <input
             type="number"
             step="0.0001"
             className="w-full px-3 py-2 rounded-lg text-sm outline-none font-num"
-            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+            style={inputStyle}
             placeholder="5000.0000"
             value={form.shares}
             onChange={(e) => f("shares")(e.target.value)}
           />
         </div>
+
+        {/* 基金类型（自动填充） */}
         <div>
-          <label className="text-xs mb-1 block" style={{ color: "var(--muted)" }}>基金类型</label>
+          <label className="text-xs mb-1 flex items-center gap-1" style={{ color: "var(--muted)" }}>
+            基金类型
+            {autoFilled && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.1)", color: "var(--up)" }}>
+                已自动识别
+              </span>
+            )}
+          </label>
           <select
             className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+            style={inputStyle}
             value={form.fund_type}
             onChange={(e) => f("fund_type")(e.target.value)}
           >
@@ -206,15 +361,19 @@ function FundForm({
             <option value="bond">债券型</option>
             <option value="index">指数型</option>
             <option value="qdii">QDII</option>
+            <option value="money">货币型</option>
+            <option value="fof">FOF</option>
           </select>
         </div>
+
+        {/* 成本净值 */}
         <div>
           <label className="text-xs mb-1 block" style={{ color: "var(--muted)" }}>成本净值（元）</label>
           <input
             type="number"
             step="0.0001"
             className="w-full px-3 py-2 rounded-lg text-sm outline-none font-num"
-            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+            style={inputStyle}
             placeholder="2.8500"
             value={form.cost_price}
             onChange={(e) => f("cost_price")(e.target.value)}

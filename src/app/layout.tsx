@@ -47,8 +47,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="flex min-h-screen">
           <Sidebar />
-          {/* 桌面端留出左侧栏宽度，移动端留出底部导航高度 */}
-          <main className="flex-1 md:ml-56 min-h-screen pb-16 md:pb-0">
+          {/* 桌面端留出左侧栏宽度，移动端留出底部导航高度（56px + safe-area） */}
+          <main
+            className="flex-1 md:ml-56 min-h-screen md:pb-0"
+            style={{ paddingBottom: "calc(56px + env(safe-area-inset-bottom, 0px))" }}
+          >
             {children}
           </main>
         </div>
