@@ -35,7 +35,7 @@ function StockForm({
       <p className="text-sm font-semibold mb-4" style={{ fontFamily: "var(--font-display)" }}>
         {initial?.id ? "编辑股票" : "添加股票"}
       </p>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {(
           [
             ["stock_code", "股票代码", "000001"],
@@ -315,9 +315,9 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 md:p-8 max-w-4xl">
       <div className="mb-6 animate-fade-in">
-        <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>持仓管理</h1>
+        <h1 className="text-xl md:text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>持仓管理</h1>
         <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>管理参与每日分析的股票和基金持仓</p>
       </div>
 
@@ -359,13 +359,13 @@ export default function PortfolioPage() {
           ) : (
             <div className="divide-y" style={{ borderColor: "var(--border)" }}>
               {stocks.map((s) => (
-                <div key={s.id} className={clsx("flex items-center justify-between py-3", !s.is_active && "opacity-40")}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+                <div key={s.id} className={clsx("flex items-start justify-between py-3 gap-2", !s.is_active && "opacity-40")}>
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
                       <TrendingUp size={14} />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{s.stock_name}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium break-words">{s.stock_name}
                         <span className="ml-2 font-num text-xs" style={{ color: "var(--muted)" }}>{s.stock_code}</span>
                       </p>
                       <p className="text-xs font-num mt-0.5" style={{ color: "var(--muted)" }}>
@@ -375,8 +375,8 @@ export default function PortfolioPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={clsx("text-xs px-2 py-0.5 rounded-full", s.is_active ? "bg-up/10 text-up" : "bg-surface-2 text-muted")}>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <span className={clsx("hidden sm:inline text-xs px-2 py-0.5 rounded-full", s.is_active ? "bg-up/10 text-up" : "bg-surface-2 text-muted")}>
                       {s.is_active ? "分析中" : "已暂停"}
                     </span>
                     <button onClick={() => { setEditItem(s); setShowForm(true); }} className="p-1.5 rounded hover:bg-white/5 transition-colors" style={{ color: "var(--muted)" }}>
@@ -399,22 +399,22 @@ export default function PortfolioPage() {
           ) : (
             <div className="divide-y" style={{ borderColor: "var(--border)" }}>
               {funds.map((f) => (
-                <div key={f.id} className={clsx("flex items-center justify-between py-3", !f.is_active && "opacity-40")}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: "rgba(52,211,153,0.08)", color: "var(--up)" }}>
+                <div key={f.id} className={clsx("flex items-start justify-between py-3 gap-2", !f.is_active && "opacity-40")}>
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold" style={{ background: "rgba(52,211,153,0.08)", color: "var(--up)" }}>
                       基
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{f.fund_name}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium break-words">{f.fund_name}
                         <span className="ml-2 font-num text-xs" style={{ color: "var(--muted)" }}>{f.fund_code}</span>
                       </p>
                       <p className="text-xs font-num mt-0.5" style={{ color: "var(--muted)" }}>
-                        {f.shares.toLocaleString()} 份 · 成本净值 ¥{f.cost_price ?? "—"} · {f.fund_type}
+                        {f.shares.toLocaleString()} 份 · 成本 ¥{f.cost_price ?? "—"} · {f.fund_type}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={clsx("text-xs px-2 py-0.5 rounded-full", f.is_active ? "bg-up/10 text-up" : "")}>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <span className={clsx("hidden sm:inline text-xs px-2 py-0.5 rounded-full", f.is_active ? "bg-up/10 text-up" : "")}>
                       {f.is_active ? "分析中" : "已暂停"}
                     </span>
                     <button onClick={() => { setEditItem(f); setShowForm(true); }} className="p-1.5 rounded hover:bg-white/5" style={{ color: "var(--muted)" }}>

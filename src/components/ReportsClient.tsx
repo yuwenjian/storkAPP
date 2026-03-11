@@ -18,15 +18,15 @@ function ReportRow({ report }: { report: DailyReport }) {
         className="w-full flex items-center justify-between py-4 text-left transition-colors hover:bg-white/[0.02]"
         onClick={() => setOpen((v) => !v)}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-start gap-3 min-w-0 flex-1">
           {isSuccess ? (
-            <CheckCircle size={16} style={{ color: "var(--up)" }} />
+            <CheckCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--up)" }} />
           ) : (
-            <XCircle size={16} style={{ color: "var(--down)" }} />
+            <XCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--down)" }} />
           )}
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-medium font-num">{report.report_date}</p>
-            <div className="flex items-center gap-3 mt-0.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
               <span className="flex items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
                 <Cpu size={10} /> {modelLabel[report.ai_model] ?? report.ai_model}
               </span>
@@ -46,10 +46,10 @@ function ReportRow({ report }: { report: DailyReport }) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <span
             className={clsx(
-              "text-xs px-2.5 py-1 rounded-full",
+              "hidden sm:inline text-xs px-2.5 py-1 rounded-full",
               isSuccess ? "text-up" : "text-down"
             )}
             style={{ background: isSuccess ? "var(--up-dim)" : "var(--down-dim)" }}
@@ -88,9 +88,9 @@ function ReportRow({ report }: { report: DailyReport }) {
 
 export default function ReportsClient({ reports }: { reports: DailyReport[] }) {
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 md:p-8 max-w-4xl">
       <div className="mb-6 animate-fade-in">
-        <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>历史报告</h1>
+        <h1 className="text-xl md:text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>历史报告</h1>
         <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>最近 30 天的每日分析报告</p>
       </div>
 

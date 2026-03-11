@@ -151,9 +151,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-4 md:p-8 max-w-2xl">
       <div className="mb-6 animate-fade-in">
-        <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>系统设置</h1>
+        <h1 className="text-xl md:text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>系统设置</h1>
         <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
           修改后点击保存，无需重新部署即时生效
         </p>

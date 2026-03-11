@@ -33,6 +33,7 @@ interface Props {
   latestReport: DailyReport | null;
   stocks: PortfolioStock[];
   funds: PortfolioFund[];
+  appConfig?: Record<string, string>;
   dataError?: string;
   dataErrorMessage?: string;
 }
@@ -61,10 +62,10 @@ function IndexCard({ name, current, change_pct }: { name: string; current: numbe
   const isUp = change_pct > 0;
   const isDown = change_pct < 0;
   return (
-    <div className="card animate-slide-up" style={{ padding: "18px 20px" }}>
-      <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>{name}</p>
+    <div className="card animate-slide-up" style={{ padding: "12px 14px" }}>
+      <p className="text-[10px] md:text-xs mb-1.5" style={{ color: "var(--muted)" }}>{name}</p>
       <p
-        className="font-num text-2xl font-medium mb-1"
+        className="font-num text-base md:text-2xl font-medium mb-1"
         style={{ color: "var(--text)", letterSpacing: "-0.02em" }}
       >
         {current > 0 ? current.toLocaleString("zh-CN", { minimumFractionDigits: 2 }) : "—"}
@@ -87,11 +88,42 @@ function IndexCard({ name, current, change_pct }: { name: string; current: numbe
 
 const INDEX_CODES = ["sh000001", "sz399001", "sz399006"] as const;
 
-export default function DashboardClient({ latestReport, stocks, funds, dataError, dataErrorMessage }: Props) {
+/**
+ * 判断当前是否处于 A股 交易时段（北京时间）：
+ *   开盘：周一~周五 9:30 之后
+ *   收盘后数据仍属今日（15:00 之前或之后均可），所以只要不是"开盘前"就显示
+ *
+ * 返回值：
+ *   'pre'    — 开盘前（不显示今日盈亏，数据是昨日的）
+ *   'open'   — 交易中（9:30~15:00）
+ *   'closed' — 收盘后（数据是今日的，可以显示）
+ *   'weekend'— 周末（不显示今日盈亏）
+ */
+function getMarketStatus(): "pre" | "open" | "closed" | "weekend" {
+  const now = new Date();
+  // 转换为北京时间（UTC+8）
+  const bjDate = new Date(now.getTime() + 8 * 3600 * 1000);
+  const day = bjDate.getUTCDay(); // 0=周日 6=周六
+  if (day === 0 || day === 6) return "weekend";
+
+  const h = bjDate.getUTCHours();
+  const m = bjDate.getUTCMinutes();
+  const totalMin = h * 60 + m;
+
+  if (totalMin < 9 * 60 + 30) return "pre";         // 9:30 前
+  if (totalMin <= 15 * 60) return "open";            // 9:30 ~ 15:00
+  return "closed";                                    // 15:00 后（收盘）
+}
+
+export default function DashboardClient({ latestReport, stocks, funds, appConfig = {}, dataError, dataErrorMessage }: Props) {
   const [triggering, setTriggering] = useState(false);
   const [liveQuotes, setLiveQuotes] = useState<Record<string, LiveQuote>>({});
   const [liveMarket, setLiveMarket] = useState<Record<string, { current: number; change_pct: number }> | null>(null);
   const [liveFundQuotes, setLiveFundQuotes] = useState<Record<string, LiveFundQuote>>({});
+
+  // 市场状态：pre=开盘前（今日数据无意义）open=交易中 closed=收盘后 weekend=周末
+  const marketStatus = getMarketStatus();
+  const showTodayPnl = marketStatus === "open" || marketStatus === "closed";
 
   const reportMarket = latestReport?.market_data as Record<string, { current: number; change_pct: number; name: string }> | null;
   const stockMarketData = latestReport?.stock_data ?? undefined;
@@ -196,7 +228,8 @@ export default function DashboardClient({ latestReport, stocks, funds, dataError
       todayPnlFunds += (fq.nav - prevNav) * f.shares;
     }
   });
-  const todayPnlTotal = todayPnlStocks + todayPnlFunds;
+  // 开盘前或周末，今日盈亏数据是昨日的，强制不显示
+  const todayPnlTotal = showTodayPnl ? todayPnlStocks + todayPnlFunds : null;
 
   async function handleTrigger() {
     setTriggering(true);
@@ -219,24 +252,38 @@ export default function DashboardClient({ latestReport, stocks, funds, dataError
     }
   }
 
-  const modelLabel: Record<string, string> = { deepseek: "DeepSeek R1", qianwen: "通义千问", kimi: "月之暗面" };
+  const modelLabel: Record<string, string> = { deepseek: "DeepSeek R1", qianwen: "通义千问 Max", kimi: "月之暗面 k1.5" };
   const sourceLabel: Record<string, string> = { tushare: "Tushare Pro", akshare: "AKShare", yahoo: "新浪/腾讯", sina: "新浪/腾讯" };
 
+  // 从 app_config 读取当前推送配置，拼接推送方式描述
+  const pushEnabled = appConfig["push_enabled"] === "true";
+  const emailEnabled = appConfig["email_enabled"] === "true";
+  const pushMethodLabel = (() => {
+    if (pushEnabled && emailEnabled) return "微信 + 邮件推送";
+    if (emailEnabled) return "邮件推送";
+    if (pushEnabled) return "微信推送";
+    return "推送";
+  })();
+
+  // 当前 app_config 中配置的 AI 模型（用于"系统状态"卡片显示，与报告的实际模型区分）
+  const configAiModel = appConfig["ai_model"] ?? "deepseek";
+  const configDataSource = appConfig["data_source"] ?? "yahoo";
+
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-4 md:p-8 max-w-6xl">
       {/* 顶部标题行 */}
-      <div className="flex items-center justify-between mb-8 animate-fade-in">
-        <div>
+      <div className="flex items-start justify-between mb-5 md:mb-8 animate-fade-in gap-3">
+        <div className="min-w-0 flex-1">
           <h1
-            className="text-2xl font-bold mb-1"
+            className="text-xl md:text-2xl font-bold mb-1"
             style={{ fontFamily: "var(--font-display)", color: "var(--text)" }}
           >
             今日总览
           </h1>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
+          <p className="text-xs md:text-sm" style={{ color: "var(--muted)" }}>
             {latestReport
               ? `最新报告：${latestReport.report_date}`
-              : "暂无报告，点击右上角手动触发"}
+              : "暂无报告，点击手动触发"}
           </p>
           {!latestReport && stocks.length === 0 && funds.length === 0 && !dataError && (
             <p className="text-xs mt-2 px-3 py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--muted)", border: "1px solid var(--border)" }}>
@@ -252,33 +299,35 @@ export default function DashboardClient({ latestReport, stocks, funds, dataError
         <button
           onClick={handleTrigger}
           disabled={triggering}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-2 md:px-4 rounded-lg text-xs md:text-sm font-medium transition-all duration-150 disabled:opacity-50 shrink-0"
           style={{
             background: "var(--accent-dim)",
             color: "var(--accent)",
             border: "1px solid rgba(56,189,248,0.2)",
           }}
         >
-          <RefreshCw size={14} className={triggering ? "animate-spin" : ""} />
-          手动触发分析
+          <RefreshCw size={13} className={triggering ? "animate-spin" : ""} />
+          <span className="hidden sm:inline">手动触发分析</span>
+          <span className="sm:hidden">触发</span>
         </button>
       </div>
 
       {/* 三大指数 */}
-      <section className="mb-8">
+      <section className="mb-5 md:mb-8">
         <p className="text-xs font-medium mb-3 uppercase tracking-widest" style={{ color: "var(--muted)" }}>
           大盘指数
         </p>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2 md:gap-4">
           <IndexCard name="上证指数" current={market?.sh?.current ?? 0} change_pct={market?.sh?.change_pct ?? 0} />
           <IndexCard name="深证成指" current={market?.sz?.current ?? 0} change_pct={market?.sz?.change_pct ?? 0} />
           <IndexCard name="创业板指" current={market?.cyb?.current ?? 0} change_pct={market?.cyb?.change_pct ?? 0} />
         </div>
       </section>
 
-      <div className="grid grid-cols-3 gap-6">
+      {/* 主体：移动端单列，桌面端 2:1 布局 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {/* 左侧：持仓概况 */}
-        <div className="col-span-2 space-y-6">
+        <div className="md:col-span-2 space-y-4 md:space-y-6">
           {/* 持仓股 */}
           <div className="card animate-slide-up delay-100">
             <div className="flex items-center justify-between mb-4">
@@ -317,7 +366,9 @@ export default function DashboardClient({ latestReport, stocks, funds, dataError
                   const costVal = costPrice * s.shares;
                   const pnl = marketVal - costVal;
                   const pnlPct = costVal > 0 ? (pnl / costVal) * 100 : 0;
-                  const todayPnl = prevClose != null && prevClose > 0 ? (currentPrice - prevClose) * s.shares : null;
+                  const todayPnl = showTodayPnl && prevClose != null && prevClose > 0
+                    ? (currentPrice - prevClose) * s.shares
+                    : null;
                   const hasLatestPrice = (q?.current ?? null) != null;
                   return (
                     <div
@@ -356,6 +407,9 @@ export default function DashboardClient({ latestReport, stocks, funds, dataError
                             <span className="ml-1 font-medium" style={{ color: changePct >= 0 ? "var(--up)" : "var(--down)" }}>
                               {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
                             </span>
+                          )}
+                          {!showTodayPnl && hasLatestPrice && (
+                            <span className="ml-1 text-[10px]" style={{ color: "var(--muted)" }}>昨收</span>
                           )}
                         </p>
                         <p className="text-xs font-num text-right" style={{ color: costVal > 0 ? (pnl >= 0 ? "var(--up)" : "var(--down)") : "var(--muted)" }}>
@@ -398,7 +452,7 @@ export default function DashboardClient({ latestReport, stocks, funds, dataError
                   const pnl = marketVal - costVal;
                   const pnlPct = costVal > 0 ? (pnl / costVal) * 100 : 0;
                   const hasLatestNav = latestNav != null && latestNav > 0;
-                  const todayPnlFund = hasLatestNav && changePct != null && changePct !== 0
+                  const todayPnlFund = showTodayPnl && hasLatestNav && changePct != null && changePct !== 0
                     ? (currentNav - currentNav / (1 + changePct / 100)) * f.shares
                     : null;
                   return (
@@ -439,8 +493,11 @@ export default function DashboardClient({ latestReport, stocks, funds, dataError
                               {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
                             </span>
                           )}
-                          {fq?.isLive && (
+                          {fq?.isLive && showTodayPnl && (
                             <span className="ml-1.5 text-[10px] px-1 rounded" style={{ background: "var(--up-bg, rgba(34,197,94,0.1))", color: "var(--up)" }}>估算</span>
+                          )}
+                          {!showTodayPnl && hasLatestNav && (
+                            <span className="ml-1 text-[10px]" style={{ color: "var(--muted)" }}>昨收</span>
                           )}
                         </p>
                         <p className="text-xs font-num text-right" style={{ color: costVal > 0 ? (pnl >= 0 ? "var(--up)" : "var(--down)") : "var(--muted)" }}>
@@ -457,8 +514,8 @@ export default function DashboardClient({ latestReport, stocks, funds, dataError
           </div>
         </div>
 
-        {/* 右侧：状态面板 */}
-        <div className="space-y-4">
+        {/* 右侧：状态面板（移动端显示在持仓列表下方） */}
+        <div className="space-y-4 md:col-span-1">
           {/* 资产总计 */}
           <div className="card animate-slide-up delay-100">
             <p className="text-xs mb-3 uppercase tracking-widest" style={{ color: "var(--muted)" }}>
@@ -482,10 +539,21 @@ export default function DashboardClient({ latestReport, stocks, funds, dataError
             </div>
             <div className="mt-3 pt-3 border-t flex flex-col gap-2 text-xs" style={{ borderColor: "var(--border)" }}>
               <div className="flex justify-between items-center">
-                <span style={{ color: "var(--muted)" }}>今日总盈亏</span>
-                <span className="font-num font-medium" style={{ color: todayPnlTotal >= 0 ? "var(--up)" : "var(--down)" }}>
-                  {todayPnlTotal >= 0 ? "+" : ""}¥{todayPnlTotal.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+                <span style={{ color: "var(--muted)" }}>
+                  今日总盈亏
+                  {!showTodayPnl && (
+                    <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--surface-2)", color: "var(--muted)", border: "1px solid var(--border)" }}>
+                      {marketStatus === "weekend" ? "周末" : "未开盘"}
+                    </span>
+                  )}
                 </span>
+                {todayPnlTotal !== null ? (
+                  <span className="font-num font-medium" style={{ color: todayPnlTotal >= 0 ? "var(--up)" : "var(--down)" }}>
+                    {todayPnlTotal >= 0 ? "+" : ""}¥{todayPnlTotal.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+                  </span>
+                ) : (
+                  <span className="font-num" style={{ color: "var(--muted)" }}>—</span>
+                )}
               </div>
               <div className="flex justify-between items-center">
                 <span style={{ color: "var(--muted)" }}>持仓总盈亏</span>
@@ -527,7 +595,9 @@ export default function DashboardClient({ latestReport, stocks, funds, dataError
                     )}
                   />
                   <span style={{ color: "var(--text-dim)" }}>
-                    {latestReport.push_status === "success" ? "微信推送成功" : "推送失败"}
+                    {latestReport.push_status === "success"
+                      ? `${pushMethodLabel}成功`
+                      : "推送失败"}
                   </span>
                 </div>
                 {latestReport.tokens_used && (
@@ -552,9 +622,11 @@ export default function DashboardClient({ latestReport, stocks, funds, dataError
             style={{ color: "var(--muted)" }}
           >
             <p className="mb-2 font-medium" style={{ color: "var(--text-dim)" }}>系统状态</p>
-            <p>⏰ 每日 15:35 自动触发</p>
+            <p>⏰ 每日 16:15 自动触发</p>
             <p className="mt-1">📊 {stocks.length} 只股票 · {funds.length} 只基金</p>
-            <p className="mt-1">🔔 Server酱微信推送</p>
+            <p className="mt-1">🤖 {modelLabel[configAiModel] ?? configAiModel}</p>
+            <p className="mt-1">📡 {sourceLabel[configDataSource] ?? configDataSource}</p>
+            <p className="mt-1">🔔 {pushMethodLabel}</p>
           </div>
         </div>
       </div>
