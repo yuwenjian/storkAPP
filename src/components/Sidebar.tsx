@@ -30,6 +30,7 @@ export default function Sidebar() {
         style={{
           background: "var(--surface)",
           borderRight: "1px solid var(--border)",
+          paddingTop: "env(safe-area-inset-top, 0px)",
         }}
       >
         {/* Logo */}

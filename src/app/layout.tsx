@@ -48,7 +48,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* 桌面端留出左侧栏宽度，移动端留出底部导航高度（56px + safe-area） */}
           <main
             className="flex-1 md:ml-56 min-h-screen md:pb-0"
-            style={{ paddingBottom: "calc(56px + env(safe-area-inset-bottom, 0px))" }}
+            style={{
+              paddingTop: "env(safe-area-inset-top, 0px)",
+              paddingBottom: "calc(56px + env(safe-area-inset-bottom, 0px))",
+            }}
           >
             {children}
           </main>

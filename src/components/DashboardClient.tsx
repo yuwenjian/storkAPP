@@ -230,6 +230,8 @@ export default function DashboardClient({ latestReport, stocks, funds, appConfig
   });
   // 开盘前或周末，今日盈亏数据是昨日的，强制不显示
   const todayPnlTotal = showTodayPnl ? todayPnlStocks + todayPnlFunds : null;
+  const todayPnlStocksDisplay = showTodayPnl ? todayPnlStocks : null;
+  const todayPnlFundsDisplay = showTodayPnl ? todayPnlFunds : null;
 
   async function handleTrigger() {
     setTriggering(true);
@@ -310,6 +312,131 @@ export default function DashboardClient({ latestReport, stocks, funds, appConfig
           <span className="hidden sm:inline">手动触发分析</span>
           <span className="sm:hidden">触发</span>
         </button>
+      </div>
+
+      {/* ===== 资产总览 Hero 卡片 ===== */}
+      <div
+        className="relative mb-5 md:mb-8 animate-slide-up overflow-hidden rounded-2xl p-4"
+        style={{
+          background: "linear-gradient(135deg, #0f1f35 0%, #0a1628 50%, #0d1f2d 100%)",
+          border: "1px solid rgba(56,189,248,0.25)",
+          boxShadow: "0 0 40px rgba(56,189,248,0.08), inset 0 1px 0 rgba(255,255,255,0.05)",
+        }}
+      >
+        {/* 背景光晕装饰 */}
+        <div
+          className="absolute top-0 right-0 w-48 h-48 rounded-full pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, rgba(56,189,248,0.06) 0%, transparent 70%)",
+            transform: "translate(30%, -30%)",
+          }}
+        />
+
+        {/* 标题 */}
+        <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "rgba(56,189,248,0.6)" }}>
+          估算总资产
+        </p>
+
+        {/* 总资产大数字 */}
+        <p
+          className="font-num font-bold mb-3"
+          style={{
+            fontSize: "clamp(1.8rem, 8vw, 2.5rem)",
+            letterSpacing: "-0.03em",
+            color: "#fff",
+            textShadow: "0 0 30px rgba(56,189,248,0.3)",
+          }}
+        >
+          ¥{totalValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+        </p>
+
+        {/* 股票 / 基金 分项 */}
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <div
+            className="rounded-xl px-3 py-2"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <p className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.45)" }}>股票市值</p>
+            <p className="font-num text-sm font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>
+              ¥{totalStockValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+            </p>
+          </div>
+          <div
+            className="rounded-xl px-3 py-2"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <p className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.45)" }}>基金市值</p>
+            <p className="font-num text-sm font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>
+              ¥{totalFundValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+            </p>
+          </div>
+        </div>
+
+        {/* 盈亏分割线 */}
+        <div style={{ height: "1px", background: "rgba(255,255,255,0.08)", marginBottom: "12px" }} />
+
+        {/* 未开盘提示 */}
+        {!showTodayPnl && (
+          <p className="text-[10px] mb-2 px-2 py-1 rounded-lg inline-block" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
+            {marketStatus === "weekend" ? "周末休市" : "开盘前"} · 今日盈亏暂不显示
+          </p>
+        )}
+
+        {/* 盈亏四行 */}
+        <div className="space-y-2 text-xs">
+          {/* 今日股票盈亏 */}
+          <div className="flex justify-between items-center">
+            <span style={{ color: "rgba(255,255,255,0.45)" }}>今日股票盈亏</span>
+            {todayPnlStocksDisplay !== null ? (
+              <span className="font-num font-medium" style={{ color: todayPnlStocksDisplay >= 0 ? "var(--up)" : "var(--down)" }}>
+                {todayPnlStocksDisplay >= 0 ? "+" : ""}¥{todayPnlStocksDisplay.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+              </span>
+            ) : <span className="font-num" style={{ color: "rgba(255,255,255,0.3)" }}>—</span>}
+          </div>
+          {/* 今日基金盈亏 */}
+          <div className="flex justify-between items-center">
+            <span style={{ color: "rgba(255,255,255,0.45)" }}>今日基金盈亏</span>
+            {todayPnlFundsDisplay !== null ? (
+              <span className="font-num font-medium" style={{ color: todayPnlFundsDisplay >= 0 ? "var(--up)" : "var(--down)" }}>
+                {todayPnlFundsDisplay >= 0 ? "+" : ""}¥{todayPnlFundsDisplay.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+              </span>
+            ) : <span className="font-num" style={{ color: "rgba(255,255,255,0.3)" }}>—</span>}
+          </div>
+
+          {/* 今日合计 — 高亮行 */}
+          <div
+            className="flex justify-between items-center rounded-xl px-3 py-2"
+            style={{
+              background: todayPnlTotal !== null
+                ? (todayPnlTotal >= 0 ? "rgba(34,197,94,0.1)" : "rgba(248,113,113,0.1)")
+                : "rgba(255,255,255,0.04)",
+              border: todayPnlTotal !== null
+                ? (todayPnlTotal >= 0 ? "1px solid rgba(34,197,94,0.2)" : "1px solid rgba(248,113,113,0.2)")
+                : "1px solid rgba(255,255,255,0.06)",
+            }}
+          >
+            <span className="font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>今日合计盈亏</span>
+            {todayPnlTotal !== null ? (
+              <span
+                className="font-num font-bold text-base"
+                style={{ color: todayPnlTotal >= 0 ? "var(--up)" : "var(--down)" }}
+              >
+                {todayPnlTotal >= 0 ? "+" : ""}¥{todayPnlTotal.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+              </span>
+            ) : <span className="font-num text-base" style={{ color: "rgba(255,255,255,0.3)" }}>—</span>}
+          </div>
+
+          {/* 持仓总盈亏 */}
+          <div className="flex justify-between items-center">
+            <span style={{ color: "rgba(255,255,255,0.45)" }}>
+              持仓总盈亏
+              <span className="ml-1 text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>（现值 − 成本）</span>
+            </span>
+            <span className="font-num font-medium" style={{ color: holdingPnl >= 0 ? "var(--up)" : "var(--down)" }}>
+              {holdingPnl >= 0 ? "+" : ""}¥{holdingPnl.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* 三大指数 */}
@@ -516,55 +643,7 @@ export default function DashboardClient({ latestReport, stocks, funds, appConfig
 
         {/* 右侧：状态面板（移动端显示在持仓列表下方） */}
         <div className="space-y-4 md:col-span-1">
-          {/* 资产总计 */}
-          <div className="card animate-slide-up delay-100">
-            <p className="text-xs mb-3 uppercase tracking-widest" style={{ color: "var(--muted)" }}>
-              估算总资产
-            </p>
-            <p className="text-xs mb-1" style={{ color: "var(--muted)" }}>
-              股票与基金最新市值之和
-            </p>
-            <p className="font-num text-3xl font-medium" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
-              ¥{totalValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-              <div className="card-sm">
-                <p style={{ color: "var(--muted)" }}>股票（最新价×股数）</p>
-                <p className="font-num mt-0.5">¥{totalStockValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}</p>
-              </div>
-              <div className="card-sm">
-                <p style={{ color: "var(--muted)" }}>基金（最新净值×份额）</p>
-                <p className="font-num mt-0.5">¥{totalFundValue.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}</p>
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t flex flex-col gap-2 text-xs" style={{ borderColor: "var(--border)" }}>
-              <div className="flex justify-between items-center">
-                <span style={{ color: "var(--muted)" }}>
-                  今日总盈亏
-                  {!showTodayPnl && (
-                    <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--surface-2)", color: "var(--muted)", border: "1px solid var(--border)" }}>
-                      {marketStatus === "weekend" ? "周末" : "未开盘"}
-                    </span>
-                  )}
-                </span>
-                {todayPnlTotal !== null ? (
-                  <span className="font-num font-medium" style={{ color: todayPnlTotal >= 0 ? "var(--up)" : "var(--down)" }}>
-                    {todayPnlTotal >= 0 ? "+" : ""}¥{todayPnlTotal.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
-                  </span>
-                ) : (
-                  <span className="font-num" style={{ color: "var(--muted)" }}>—</span>
-                )}
-              </div>
-              <div className="flex justify-between items-center">
-                <span style={{ color: "var(--muted)" }}>持仓总盈亏</span>
-                <span className="font-num font-medium" style={{ color: holdingPnl >= 0 ? "var(--up)" : "var(--down)" }}>
-                  {holdingPnl >= 0 ? "+" : ""}¥{holdingPnl.toLocaleString("zh-CN", { maximumFractionDigits: 0 })}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 最新报告状态 */}
+            {/* 最新报告状态 */}
           {latestReport && (
             <div className="card animate-slide-up delay-200">
               <p className="text-xs mb-3 uppercase tracking-widest" style={{ color: "var(--muted)" }}>
